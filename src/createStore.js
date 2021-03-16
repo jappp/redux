@@ -99,10 +99,12 @@ export default function createStore(reducer, preloadedState, enhancer) {
    * @returns {Function} A function to remove this change listener.
    */
   function subscribe(listener) {
+    // 校验 listener 的类型
     if (typeof listener !== 'function') {
       throw new Error('Expected listener to be a function.')
     }
 
+    // 禁止在 reducer 中调用 subscribe
     if (isDispatching) {
       throw new Error(
         'You may not call store.subscribe() while the reducer is executing. ' +
@@ -112,11 +114,15 @@ export default function createStore(reducer, preloadedState, enhancer) {
       )
     }
 
+    // 该变量用于防止多次调用 unsubscribe 函数
     let isSubscribed = true
 
+    // 确保 nextListeners 与 currentListeners 不指向同一个引用
     ensureCanMutateNextListeners()
+    // 注册监听函数
     nextListeners.push(listener)
 
+    // 返回取消订阅当前 listener 的方法
     return function unsubscribe() {
       if (!isSubscribed) {
         return
@@ -163,6 +169,7 @@ export default function createStore(reducer, preloadedState, enhancer) {
    * return something else (for example, a Promise you can await).
    */
   function dispatch(action) {
+    // 校验 action 数据格式是否合法
     if (!isPlainObject(action)) {
       throw new Error(
         'Actions must be plain objects. ' +
@@ -170,6 +177,7 @@ export default function createStore(reducer, preloadedState, enhancer) {
       )
     }
 
+    // 约束 action 中必须有 type 属性作为唯一标识
     if (typeof action.type === 'undefined') {
       throw new Error(
         'Actions may not have an undefined "type" property. ' +
@@ -177,17 +185,22 @@ export default function createStore(reducer, preloadedState, enhancer) {
       )
     }
 
+    // 若当前已经处于 dispatch 流程中, 抛出异常提示不允许重复执行
     if (isDispatching) {
       throw new Error('Reducers may not dispatch actions.')
     }
 
     try {
+      // 执行 render 前, 先上锁标记当前已经存在 dispatch 在执行了
       isDispatching = true
+      // 调用 reducer 计算新的state
       currentState = currentReducer(currentState, action)
     } finally {
+      // 执行结束, 释放 isDispatching
       isDispatching = false
     }
 
+    // 触发订阅
     const listeners = (currentListeners = nextListeners)
     for (let i = 0; i < listeners.length; i++) {
       const listener = listeners[i]
